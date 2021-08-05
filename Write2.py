@@ -3,6 +3,9 @@
 import RPi.GPIO as GPIO
 from MFRC522Update import MFRC522Update
 import json
+from datetime import datetime
+import uuid
+import requests
 
 reader=MFRC522Update()
 
@@ -14,7 +17,7 @@ def general():
   fecha=0
   lista_sku=0
   opcion_1=int(input("Bienvenido, que desea hacer: (Escribir - 1) - (Leer - 2) \n"))
-  
+  opcion_2_1=3
   if opcion_1 ==1:
     opcion_1_1=int(input("(Nuevo Tag - 1) - (Tag Existente - 2): \n"))
     if opcion_1_1==1:
@@ -22,7 +25,7 @@ def general():
       sku=str(input("Nuevo SKU: "))
       lote=str(input("Lote: "))
       cantidad=str(input("Cantidad: "))
-      fecha=str(input("Fecha de Vencimiento (dd-mm-aaaa): "))
+      fecha=str(input("Fecha de Vencimiento (aaaa-mm-dd): "))
       print("Acerque el TAG")
       
       write = str('["' + sku + '",' + '"'+lote+'",'+cantidad+',"'+fecha+'"]')
@@ -65,7 +68,7 @@ def general():
               sku = str(input("Nuevo SKU: "))
               lote = str(input("Lote: "))
               cantidad = str(input("Cantidad: "))
-              fecha = str(input("Fecha de Vencimiento (dd-mm-aaaa): "))
+              fecha = str(input("Fecha de Vencimiento (aaaa-mm-dd): "))
               write = str('["' + sku + '",' + '"' + lote + '",' + cantidad + ',"' + fecha + '"]')
               GPIO.cleanup()
               reader4=MFRC522Update()
@@ -204,36 +207,35 @@ def general():
     t4= json.loads(text4)
   
   tx=[t1,t2,t3,t4]
+  f0=str(uuid.uuid4())
+  ft=int(datetime.timestamp(datetime.now()))
+  ft=datetime.fromtimestamp(ft).isoformat()
+  ft=str(ft)
+  typ=0
   
-  f1=str('{ "TAG":"' + t0[0]+'","PRODUCTS":{')
+  if opcion_1==2:
+    typ="READ"
+  elif opcion_2_1==1:
+    typ="UPDATE"
+  else:
+    typ="ADD"
+  f1=str('{ "register_id":"' + f0 +'","register_type":"'+typ+'","register_date":"'+ft+'","product_id":')
   
-  for i in range(0,len(t0[1])):
-    cant_text=str(tx[i][2])
-    f1=str(f1+'"'+tx[i][0]+'":{ "LOTE": "'+tx[i][1]+'","CANTIDAD":'+cant_text+',"F.VENCIMIENTO":"'+tx[i][3]+'"}')
-    if i <len(t0[1])-1:
-      f1=str(f1+",")
+  mod=int(input("Ingrese el #registro modificado, añadido o leído: \n"))
+  cant_text=str(tx[mod-1][2])
+  f1=str(f1+'"'+tx[0][mod-1]+'", "stowage_id":"'+t0[0]+ '","quantity":'+cant_text+',"batch_id": "'+tx[mod-1][1]+'","expiring_date":"'+tx[mod-1][3]+'T00:00:000"}')
   
-  f1=str(f1+"}}")
   print(f1)
   jsonFile = open("tag.json", "w")
   jsonFile.write(f1)
   jsonFile.close()
+  f1=json.loads(f1)
+  requests.post(url='http://192.168.0.18:3001/reading', data=f1)
+  GPIO.cleanup()
     
                    
 general()
 
 
 
-try:
-        #text = input('New data:')
-        opc =int(input('Opcion'))
-        print("Now place your tag to write")
-        print("Written")
-        #reader.write_no_block(text,opc)
-        GPIO.cleanup()
-        reader32=MFRC522Update()
-        id,text1 = reader32.read_no_block(opc)
-        print(text1)
-finally:
-        GPIO.cleanup()
   
